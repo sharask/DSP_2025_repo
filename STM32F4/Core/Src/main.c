@@ -18,10 +18,10 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include "usb_host.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "stdio.h" //printf
 
 /* USER CODE END Includes */
 
@@ -32,6 +32,14 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+//define the ITM stimulus registers
+#define ITM_PORT(n) (*((volatile unsigned long *)(0xE0000000+4*n)))
+
+//DWT
+//Define registers
+#define DWT_CYCCNT *(volatile uint32_t *)0xE0001004
+#define DWT_CONTROL *(volatile uint32_t *)0xE0001000
+#define SCB_DEMCR *(volatile uint32_t *)0xE000EDFC
 
 /* USER CODE END PD */
 
@@ -47,7 +55,14 @@ I2S_HandleTypeDef hi2s3;
 
 SPI_HandleTypeDef hspi1;
 
+UART_HandleTypeDef huart2;
+
 /* USER CODE BEGIN PV */
+unsigned int Loop = 0;
+//DWT
+//Variables
+uint32_t count_tic = 0;
+uint32_t count_us = 0;
 
 /* USER CODE END PV */
 
@@ -57,14 +72,23 @@ static void MX_GPIO_Init(void);
 static void MX_I2C1_Init(void);
 static void MX_I2S3_Init(void);
 static void MX_SPI1_Init(void);
-void MX_USB_HOST_Process(void);
-
+static void MX_USART2_UART_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+//write() function implementation for the printf()
+/**/
+int _write(int file, char *ptr, int len)
+{
+	// Implement your write code here, this is used by puts and printf for example
+	for(int i=0 ; i<len ; i++)
+	ITM_SendChar((*ptr++));
+	return len;
+}
+
 
 /* USER CODE END 0 */
 
@@ -76,6 +100,10 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
+	//DWT
+	//Enable the Counter
+	SCB_DEMCR |= CoreDebug_DEMCR_TRCENA_Msk; //Enable DWT
+	DWT_CONTROL|= DWT_CTRL_CYCCNTENA_Msk; //DWT On
 
   /* USER CODE END 1 */
 
@@ -100,7 +128,7 @@ int main(void)
   MX_I2C1_Init();
   MX_I2S3_Init();
   MX_SPI1_Init();
-  MX_USB_HOST_Init();
+  MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
 
   /* USER CODE END 2 */
@@ -109,12 +137,33 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+	  Loop++;
+
+	  //printf test
+	  printf("Main loop!\n");
+	  printf("Loop = %d \n", Loop); //Variable to SWO
+
+
+	  //ITM_Port test
+	  ITM_PORT(1) = 1; //Send data to ITM port
+	  HAL_Delay(100);
+	  ITM_PORT(1) = 2; //Send data to ITM port
+
+	  //DWT test
+	  DWT_CYCCNT = 0; 			//Set counter to 0
+	  HAL_Delay(100);
+	  //Get counter value
+	  count_tic = DWT_CYCCNT; 	//qty of cycles
+	  count_us = count_tic / (SystemCoreClock/1000000U); //time in us
+	  ITM_PORT(2) = count_us; 	//us to ITM_Port
+
+
 	  //Blink test
 	  HAL_GPIO_TogglePin(LD4_GPIO_Port, LD4_Pin);
 	  HAL_Delay(500);
 
+
     /* USER CODE END WHILE */
-    MX_USB_HOST_Process();
 
     /* USER CODE BEGIN 3 */
   }
@@ -273,6 +322,39 @@ static void MX_SPI1_Init(void)
 }
 
 /**
+  * @brief USART2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_USART2_UART_Init(void)
+{
+
+  /* USER CODE BEGIN USART2_Init 0 */
+
+  /* USER CODE END USART2_Init 0 */
+
+  /* USER CODE BEGIN USART2_Init 1 */
+
+  /* USER CODE END USART2_Init 1 */
+  huart2.Instance = USART2;
+  huart2.Init.BaudRate = 115200;
+  huart2.Init.WordLength = UART_WORDLENGTH_8B;
+  huart2.Init.StopBits = UART_STOPBITS_1;
+  huart2.Init.Parity = UART_PARITY_NONE;
+  huart2.Init.Mode = UART_MODE_TX_RX;
+  huart2.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart2.Init.OverSampling = UART_OVERSAMPLING_16;
+  if (HAL_UART_Init(&huart2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN USART2_Init 2 */
+
+  /* USER CODE END USART2_Init 2 */
+
+}
+
+/**
   * @brief GPIO Initialization Function
   * @param None
   * @retval None
@@ -351,6 +433,20 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : VBUS_FS_Pin */
+  GPIO_InitStruct.Pin = VBUS_FS_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(VBUS_FS_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : OTG_FS_ID_Pin OTG_FS_DM_Pin OTG_FS_DP_Pin */
+  GPIO_InitStruct.Pin = OTG_FS_ID_Pin|OTG_FS_DM_Pin|OTG_FS_DP_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  GPIO_InitStruct.Alternate = GPIO_AF10_OTG_FS;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
   /*Configure GPIO pin : OTG_FS_OverCurrent_Pin */
   GPIO_InitStruct.Pin = OTG_FS_OverCurrent_Pin;
