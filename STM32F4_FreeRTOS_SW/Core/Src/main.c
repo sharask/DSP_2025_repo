@@ -510,7 +510,7 @@ void StartDefaultTask(void *argument)
   /* Infinite loop */
   for(;;)
   {
-    osDelay(100);
+    osDelay(1000);
   }
   /* USER CODE END 5 */
 }
@@ -533,7 +533,7 @@ void StartGreenTask(void *argument)
 	  SEGGER_SYSVIEW_PrintfHost("GreenTask is running: %d \n" ,tcount);
 
 	  HAL_GPIO_TogglePin(LD4_GPIO_Port, LD4_Pin);
-	  osDelay(100);
+	  osDelay(10);
   }
   /* USER CODE END StartGreenTask */
 }
@@ -551,8 +551,12 @@ void StartBlueTask(void *argument)
   /* Infinite loop */
   for(;;)
   {
+	  //dummy delay
+	  for(uint32_t i=0; i<35000; i++)
+		  ;
+
 	  HAL_GPIO_TogglePin(LD6_GPIO_Port, LD6_Pin);
-	  osDelay(400);
+	  osDelay(100);
   }
   /* USER CODE END StartBlueTask */
 }
