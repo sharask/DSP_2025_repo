@@ -59,7 +59,7 @@ SPI_HandleTypeDef hspi1;
 
 /* USER CODE BEGIN PV */
 static int16_t OutputBuffer[TEST_LENGTH_SAMPLES*2];	//Output, left+right channels
-static int16_t random_temp;
+//static int16_t random_temp;
 
 	//IIR related PV
 static float32_t testInput_f32[TEST_LENGTH_SAMPLES];	//IIR input signal buffer
